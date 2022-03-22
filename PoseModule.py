@@ -28,6 +28,7 @@ class poseDetector():
         self.results = self.pose.process(imgRGB)
         if self.results.pose_landmarks:
             if draw:
+                # print(self.results.pose_landmarks)
                 self.mpDraw.draw_landmarks(img, self.results.pose_landmarks,
                                            self.mpPose.POSE_CONNECTIONS)
         return img
@@ -44,7 +45,7 @@ class poseDetector():
                     cv2.circle(img, (cx, cy), 5, (255, 0, 0), cv2.FILLED)
         return self.lmList
 
-    def findAngle(self, img, p1, p2, p3, draw=True):
+    def findAngle(self, img, p1, p2, p3, draw=True, c1=0, c2=0, c3=255):
 
         # Get the landmarks
         x1, y1 = self.lmList[p1][1:3]
@@ -66,14 +67,14 @@ class poseDetector():
         if draw:
             cv2.line(img, (x1, y1), (x2, y2), (255, 255, 255), 3)
             cv2.line(img, (x3, y3), (x2, y2), (255, 255, 255), 3)
-            cv2.circle(img, (x1, y1), 10, (0, 0, 255), cv2.FILLED)
-            cv2.circle(img, (x1, y1), 15, (0, 0, 255), 2)
-            cv2.circle(img, (x2, y2), 10, (0, 0, 255), cv2.FILLED)
-            cv2.circle(img, (x2, y2), 15, (0, 0, 255), 2)
-            cv2.circle(img, (x3, y3), 10, (0, 0, 255), cv2.FILLED)
-            cv2.circle(img, (x3, y3), 15, (0, 0, 255), 2)
+            cv2.circle(img, (x1, y1), 10, (c1, c2, c3), cv2.FILLED)
+            cv2.circle(img, (x1, y1), 15, (c1, c2, c3), 2)
+            cv2.circle(img, (x2, y2), 10, (c1, c2, c3), cv2.FILLED)
+            cv2.circle(img, (x2, y2), 15, (c1, c2, c3), 2)
+            cv2.circle(img, (x3, y3), 10, (c1, c2, c3), cv2.FILLED)
+            cv2.circle(img, (x3, y3), 15, (c1, c2, c3), 2)
             cv2.putText(img, str(int(angle)), (x2 - 50, y2 + 50),
-                        cv2.FONT_HERSHEY_PLAIN, 2, (0, 0, 255), 2)
+                        cv2.FONT_HERSHEY_PLAIN, 2, (c1, c2, c3), 2)
         return angle
 
     def checkBow(self, img, draw=True):
@@ -93,8 +94,8 @@ class poseDetector():
             x2, y2 = self.lmList[32][1:3]
             x3, y3 = self.lmList[24][1:3]
 
-        percentage = round(1-((y1-y2) / (y3-y2)), 2) * 100
-        print(percentage)
+        percentage = round(1 - ((y1 - y2) / (y3 - y2)), 2) * 100
+        # print(percentage)
         if draw is True and percentage >= 50:
             cv2.putText(img, f"{str(percentage)}%", (x1 - 50, y1 + 50),
                         cv2.FONT_HERSHEY_PLAIN, 5, (0, 0, 255), 2)
@@ -103,18 +104,29 @@ class poseDetector():
 
     def checkCurl(self, img, draw=True, side="right"):
 
+        # if abs(self.lmList[11][3]) - abs(self.lmList[12][3]):
+        #     side = "None"
+        #
+        # elif self.lmList[11][3] > self.lmList[12][3]:
+        #     print(self.lmList[11][3], self.lmList[12][3])
+        #     side = "right"
+        #     angle = self.findAngle(img, 12, 14, 16)
+
         if self.lmList[11][3] > self.lmList[12][3]:
+            # print(self.lmList[11][3], self.lmList[12][3])
             side = "right"
             angle = self.findAngle(img, 12, 14, 16)
 
         else:
             side = "left"
+            # print(self.lmList[11][3], self.lmList[12][3])
             # coordinates of wrist and foot
             angle = self.findAngle(img, 11, 13, 15)
 
         # start
+
         if self.counter == 0 and self.stage == "up":
-            cv2.putText(img, "Please straighten your arm", (100, 250),
+            cv2.putText(img, "Please straighten your arm", (100, 360),
                         cv2.FONT_HERSHEY_PLAIN, 2, (0, 0, 255), 2)
 
         # check curl
@@ -124,15 +136,36 @@ class poseDetector():
         if angle < 50 and self.stage == "down":
             self.stage = "up"
             self.counter += 1
-        print(angle, self.stage)
+        # print(angle, self.stage)
 
         if draw:
-            cv2.putText(img, str(self.counter), (350, 100),
+            cv2.putText(img, str(self.counter), (10, 40),
                         cv2.FONT_HERSHEY_PLAIN, 3, (0, 0, 255), 2)
         return self.counter
 
     def curlRestart(self):
         self.counter = 0
+
+    def checkKnee(self, img):
+        if self.lmList[11][3] < self.lmList[12][3]:
+
+            side = "right"
+            angle = self.findAngle(img, 11, 23, 25)
+            if 94 > angle > 84:
+                angle = self.findAngle(img, 11, 23, 25, c1=0, c2=255, c3=0)
+
+            angle = self.findAngle(img, 23, 25, 27)
+            if 94 > angle > 84:
+                angle = self.findAngle(img, 23, 25, 27, c1=0, c2=255, c3=0)
+        else:
+            side = "left"
+            angle = self.findAngle(img, 12, 24, 26)
+            if 94 > angle > 84:
+                angle = self.findAngle(img, 12, 24, 26, c1=0, c2=255, c3=0)
+
+            angle = self.findAngle(img, 24, 26, 28)
+            if 94 > angle > 84:
+                angle = self.findAngle(img, 24, 26, 28, c1=0, c2=255, c3=0)
 
 
 def main():
@@ -144,7 +177,7 @@ def main():
         img = detector.findPose(img)
         lmList = detector.findPosition(img, draw=False)
         if len(lmList) != 0:
-            print(lmList[14])
+            # print(lmList[14])
             cv2.circle(img, (lmList[14][1], lmList[14][2]), 15, (0, 0, 255), cv2.FILLED)
 
         cTime = time.time()
