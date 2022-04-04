@@ -5,11 +5,15 @@ from PIL import Image
 from PIL import ImageTk
 import PoseModule as pm
 import time
+import dirCreator as dc
+
+dc.dirCreator()
 
 # Set up GUI
 window = tk.Tk()  # Makes main window
-window.wm_title("Pomocnik fizjoterapeuty")
-window.config(background="#FFFFFF")
+window.wm_title("Ekran Cwiczeń")
+window.config(background="#4287f5")
+window.geometry("665x690+500+200")
 
 # Graphics window
 imageFrame = tk.Frame(window, width=600, height=500)
@@ -25,17 +29,31 @@ detector = pm.poseDetector()
 
 selected_option = tk.StringVar()
 options = (("Neutral", "Neutral"),
-           ("Knee Flex", "Knee Flex"),
+           ("Knee", "Knee"),
            ("Bow", "Bow"),
            ("Bicep", "Bicep")
            )
-# Warning grid
-warning = tk.Label(text="",font=("Courier Bold",20),fg="red")
+# Warning label
+warning = tk.Label(text="", font=("Courier Bold", 20), fg="red", width=40)
 warning.grid(row=0, column=0, padx=0, pady=2)
 
-# text grid
-excInfo = tk.Label(text="Choose Your Excercise",font=("Courier Bold",15))
-excInfo.grid(row=2, column=0, padx=0, pady=2)
+# Choosing label
+excInfo = tk.Label(text="Choose Your Excercise", font=("Courier Bold", 15))
+excInfo.grid(row=2, column=0, padx=10, pady=2, sticky="W")
+
+# counter label
+excCounter = tk.Label(text="Reps: ", font=("Courier Bold", 12), width=8)
+excCounter.grid(row=3, column=0, padx=223, pady=3, sticky="W")
+
+# excercise counter labels
+kneeLabel = tk.Label(text=detector.flexCounter, font=("Courier Bold", 12), width=10)
+kneeLabel.grid(row=4, column=0, padx=223, pady=3, sticky="W")
+
+BowLabel = tk.Label(text="0", font=("Courier Bold", 12), width=10)
+BowLabel.grid(row=5, column=0, padx=223, pady=3, sticky="W")
+
+bicepLabel = tk.Label(text=detector.bicepCounter, font=("Courier Bold", 12), width=10)
+bicepLabel.grid(row=6, column=0, padx=223, pady=3, sticky="W")
 
 # creating radio buttons
 count = 3
@@ -45,37 +63,66 @@ for excercise in options:
         text=excercise[0],
         value=excercise[1],
         variable=selected_option,
+        width=26
     )
-    r.grid(row=count, column=0, padx=0, pady=2)
+    r.grid(row=count, column=0, padx=10, pady=2, sticky="W")
+
+    # neutral as default
     if count == 3:
         r.invoke()
     count += 1
 
 
 # choosing button
-button = tk.Button(
-    window,
-    text="Bicep counter reset",
-    command=detector.curlRestart)
-button.grid(row=count, column=0, padx=50, pady=2)
+# button = tk.Button(
+#     window,
+#     text="Bicep bicepCounter reset",
+#     command=detector.curlRestart)
+# button.grid(row=count, column=0, padx=50, pady=2)
 
 
 def show_frame():
     successCam, camImg = cap.read()
-    camImg = detector.findPose(camImg, draw=False)
-    lmList = detector.findPosition(camImg, draw=False)
+    camImg = detector.findPose(camImg, draw=True)
+    lmList = detector.findPosition(camImg, draw=True)
 
     if len(lmList) != 0:
-        warning.configure(text="You're doing " + str(selected_option.get()))
-        if selected_option.get() == "Bow":
-            percentage = detector.checkBow(camImg, draw=True)
-            detector.counter = 0
-        elif selected_option.get() == "Bicep":
-            bicepsCounter = detector.checkCurl(camImg, draw=True)
-        elif selected_option.get() == "Knee Flex":
-            detector.checkKnee(camImg)
-        elif selected_option.get() == "Neutral":
-            detector.counter = 0
+        detector.startMove()
+        # print(detector.start, detector.startList)
+        if detector.start:
+            if selected_option.get() == "Bow":
+                percentage = detector.checkBow(camImg, draw=True)
+
+            elif selected_option.get() == "Bicep":
+                bAngle = detector.checkCurl(camImg, draw=True)
+                detector.timeCheck(bAngle, camImg, selected_option.get())
+
+                bicepLabel.configure(text=detector.bicepCounter)
+                if detector.bicepStage == "up":
+                    warning.configure(text="Wyprostuj rękę")
+                else:
+                    warning.configure(text="Zegnij rękę")
+
+            elif selected_option.get() == "Knee":
+                pAngle, kAngle = detector.checkKnee(camImg)
+                kneeLabel.configure(text=detector.flexCounter)
+                detector.timeCheck(kAngle, camImg, selected_option.get())
+
+                warning.configure(text="Opuść nogę w dół")
+
+                if detector.flexStage == "up":
+                    warning.configure(text="Opuść nogę w dół")
+                else:
+                    warning.configure(text="Unieś nogę do góry")
+                # print(detector.signal)
+
+            elif selected_option.get() == "Neutral":
+                warning.configure(text="WELCOME TO THE APP 😁")
+                # print(lmList[16][1])
+        else:
+            warning.configure(text="To start, swipe left hand to right")
+
+        detector.restartMove()
 
     cv2image = cv2.cvtColor(camImg, cv2.COLOR_BGR2RGBA)
     img = Image.fromarray(cv2image)
@@ -85,9 +132,6 @@ def show_frame():
     lmain.after(1, show_frame)
 
 
-# Slider window (slider controls stage position)
-# sliderFrame = tk.Frame(window, width=600, height=100)
-# sliderFrame.grid(row=600, column=0, padx=10, pady=2)
-
 show_frame()  # Display 2
 window.mainloop()  # Starts GUI
+# menu.mainloop()

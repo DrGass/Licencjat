@@ -15,8 +15,20 @@ class poseDetector():
         self.smoothSegment = smoothSegment
         self.detectionCon = detectionCon
         self.trackCon = trackCon
-        self.counter = 0
-        self.stage = "up"
+        self.bicepCounter = 0
+        self.flexCounter = 0
+        self.bicepStage = "up"
+        self.flexStage = "down"
+        self.start = False
+
+        self.restartList = [0] * 50
+        self.startList = [300] * 50
+        self.timeList = []
+        self.imgCounter = 0
+        self.signal = False
+
+        now = time.localtime(time.time())
+        self.createTime = str(now.tm_mday) + "." + str(now.tm_mon) + "." + str(now.tm_year)
 
         self.mpDraw = mp.solutions.drawing_utils
         self.mpPose = mp.solutions.pose
@@ -104,13 +116,9 @@ class poseDetector():
 
     def checkCurl(self, img, draw=True, side="right"):
 
-        # if abs(self.lmList[11][3]) - abs(self.lmList[12][3]):
-        #     side = "None"
-        #
-        # elif self.lmList[11][3] > self.lmList[12][3]:
-        #     print(self.lmList[11][3], self.lmList[12][3])
-        #     side = "right"
-        #     angle = self.findAngle(img, 12, 14, 16)
+        # if self.lmList[25][1] - self.lmList[16][1] < 30:
+        #     if self.lmList[25][2] - self.lmList[16][2] < 20:
+        #         self.curlRestart()
 
         if self.lmList[11][3] > self.lmList[12][3]:
             # print(self.lmList[11][3], self.lmList[12][3])
@@ -125,47 +133,105 @@ class poseDetector():
 
         # start
 
-        if self.counter == 0 and self.stage == "up":
+        if self.bicepCounter == 0 and self.bicepStage == "up":
             cv2.putText(img, "Please straighten your arm", (100, 360),
                         cv2.FONT_HERSHEY_PLAIN, 2, (0, 0, 255), 2)
 
         # check curl
 
-        if angle > 160:
-            self.stage = "down"
-        if angle < 50 and self.stage == "down":
-            self.stage = "up"
-            self.counter += 1
-        # print(angle, self.stage)
+        if angle > 160 and self.signal:
+            self.bicepStage = "down"
+            self.signal = False
+        if angle < 50 and self.bicepStage == "down" and self.signal:
+            self.signal = False
+            self.bicepStage = "up"
+            self.bicepCounter += 1
+        # print(angle, self.bicepStage)
 
         if draw:
-            cv2.putText(img, str(self.counter), (10, 40),
+            cv2.putText(img, str(self.bicepCounter), (10, 40),
                         cv2.FONT_HERSHEY_PLAIN, 3, (0, 0, 255), 2)
-        return self.counter
+
+        return angle
 
     def curlRestart(self):
-        self.counter = 0
+        self.bicepCounter = 0
 
-    def checkKnee(self, img):
+    def checkKnee(self, img, draw=True):
         if self.lmList[11][3] < self.lmList[12][3]:
 
             side = "right"
-            angle = self.findAngle(img, 11, 23, 25)
-            if 94 > angle > 84:
-                angle = self.findAngle(img, 11, 23, 25, c1=0, c2=255, c3=0)
+            pelvisAngle = self.findAngle(img, 11, 23, 25)
+            if 94 > pelvisAngle > 84:
+                pelvisAngle = self.findAngle(img, 11, 23, 25, c1=0, c2=255, c3=0)
 
-            angle = self.findAngle(img, 23, 25, 27)
-            if 94 > angle > 84:
-                angle = self.findAngle(img, 23, 25, 27, c1=0, c2=255, c3=0)
+            kneeAngle = self.findAngle(img, 23, 25, 27)
+            if 94 > kneeAngle > 84:
+                kneeAngle = self.findAngle(img, 23, 25, 27, c1=0, c2=255, c3=0)
         else:
             side = "left"
-            angle = self.findAngle(img, 12, 24, 26)
-            if 94 > angle > 84:
-                angle = self.findAngle(img, 12, 24, 26, c1=0, c2=255, c3=0)
+            pelvisAngle = self.findAngle(img, 12, 24, 26)
+            if 94 > pelvisAngle > 84:
+                pelvisAngle = self.findAngle(img, 12, 24, 26, c1=0, c2=255, c3=0)
 
-            angle = self.findAngle(img, 24, 26, 28)
-            if 94 > angle > 84:
-                angle = self.findAngle(img, 24, 26, 28, c1=0, c2=255, c3=0)
+            kneeAngle = self.findAngle(img, 24, 26, 28)
+            if 94 > kneeAngle > 84:
+                kneeAngle = self.findAngle(img, 24, 26, 28, c1=0, c2=255, c3=0)
+
+        # if angle > 160 and self.signal:
+        #     self.bicepStage = "down"
+        #     self.signal = False
+        # if angle < 50 and self.bicepStage == "down" and self.signal:
+        #     self.signal = False
+        #     self.bicepStage = "up"
+        #     self.bicepCounter += 1
+
+        if self.signal and kneeAngle > 140 and self.flexCounter != 0:
+            self.flexStage = "down"
+            self.signal = False
+
+        if self.signal and kneeAngle < 110 and self.flexStage == "down":
+            self.flexStage = "up"
+            self.flexCounter += 1
+            self.signal = False
+
+        if draw:
+            cv2.putText(img, str(self.flexCounter), (10, 40),
+                        cv2.FONT_HERSHEY_PLAIN, 3, (0, 0, 255), 2)
+
+        return pelvisAngle, kneeAngle
+
+    def restartMove(self):
+        if (self.restartList[48] - self.restartList[0]) > 300:
+            self.bicepCounter = 0
+            self.flexCounter = 0
+        if len(self.restartList) == 50:
+            del self.restartList[0]
+        self.restartList.append(self.lmList[16][1])
+
+    def startMove(self):
+        if len(self.startList) == 50:
+            if (self.startList[48] - self.startList[0]) > 300:
+                self.start = True
+            del self.startList[0]
+        self.startList.append(self.lmList[15][1])
+
+    def timeCheck(self, angle, img, excercise):
+        self.timeList.append([angle, time.time()])
+        # print(time.time() - self.timeList[0][1])
+        # print(self.timeList)
+        if time.time() - self.timeList[0][1] > 2.0 \
+                and angle + 4 > self.timeList[0][0] > angle - 4 \
+                and self.signal == False:
+            cv2.imwrite(excercise + "/" + self.createTime + "/" + excercise + str(self.imgCounter) + ".png", img)
+            print("added screen")
+            self.timeList.clear()
+            self.timeList.append([angle, time.time()])
+            self.imgCounter += 1
+            self.signal = True
+
+        if len(self.timeList) > 60:
+            del self.timeList[0]
 
 
 def main():
