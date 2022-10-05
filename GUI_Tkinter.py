@@ -1,4 +1,3 @@
-import numpy as np
 import cv2
 import tkinter as tk
 from PIL import Image
@@ -11,9 +10,16 @@ dc.dirCreator()
 
 # Set up GUI
 window = tk.Tk()  # Makes main window
-window.wm_title("Ekran Cwiczeń")
+window.wm_title("Pomocnik Fizjoterapeuty")
 window.config(background="#4287f5")
-window.geometry("665x690+500+200")
+
+VShift = "+" + str(window.winfo_screenheight() // 2 - 690 // 2)
+HShift = "+" + str(window.winfo_screenwidth() // 2 - 665 // 2)
+windowShift = HShift + VShift
+window.geometry(f"665x690{windowShift}")
+
+print((window.winfo_screenheight()) // 2 - 665 // 2)
+print((window.winfo_screenwidth()) // 2 - 690 // 2)
 
 # Graphics window
 imageFrame = tk.Frame(window, width=600, height=500)
@@ -54,7 +60,7 @@ BowLabel.grid(row=5, column=0, padx=223, pady=3, sticky="W")
 
 bicepLabel = tk.Label(text=detector.bicepCounter, font=("Courier Bold", 12), width=10)
 bicepLabel.grid(row=6, column=0, padx=223, pady=3, sticky="W")
-
+excImg = ""
 # creating radio buttons
 count = 3
 for excercise in options:
@@ -80,6 +86,11 @@ for excercise in options:
 #     command=detector.curlRestart)
 # button.grid(row=count, column=0, padx=50, pady=2)
 
+def showImage(excImg):
+    img = cv2.imread(excImg)
+    cv2.imshow("image", img)
+    cv2.moveWindow("image", int(HShift) + 665, int(VShift))
+
 
 def show_frame():
     successCam, camImg = cap.read()
@@ -92,6 +103,9 @@ def show_frame():
         if detector.start:
             if selected_option.get() == "Bow":
                 percentage = detector.checkBow(camImg, draw=True)
+                warning.configure(text="Wykonaj skłon prosty")
+                if cv2.getWindowProperty('image', cv2.WND_PROP_VISIBLE) >= 1:
+                    cv2.destroyWindow("image")
 
             elif selected_option.get() == "Bicep":
                 bAngle = detector.checkCurl(camImg, draw=True)
@@ -99,8 +113,12 @@ def show_frame():
 
                 bicepLabel.configure(text=detector.bicepCounter)
                 if detector.bicepStage == "up":
+                    excImg = "images/biceps_curl_down.jpg"
+                    showImage(excImg)
                     warning.configure(text="Wyprostuj rękę")
                 else:
+                    excImg = "images/biceps_curl_up.jpg"
+                    showImage(excImg)
                     warning.configure(text="Zegnij rękę")
 
             elif selected_option.get() == "Knee":
@@ -111,16 +129,22 @@ def show_frame():
                 warning.configure(text="Opuść nogę w dół")
 
                 if detector.flexStage == "up":
+                    excImg = "images/Knee_flexion.jpg"
+                    showImage(excImg)
                     warning.configure(text="Opuść nogę w dół")
                 else:
+                    excImg = "images/Knee_flexion_up.jpg"
+                    showImage(excImg)
                     warning.configure(text="Unieś nogę do góry")
                 # print(detector.signal)
 
             elif selected_option.get() == "Neutral":
-                warning.configure(text="WELCOME TO THE APP 😁")
+                if cv2.getWindowProperty('image', cv2.WND_PROP_VISIBLE) >= 1:
+                    cv2.destroyWindow("image")
+                warning.configure(text="Przed startem zasłoń źródła światła")
                 # print(lmList[16][1])
         else:
-            warning.configure(text="To start, swipe left hand to right")
+            warning.configure(text="Aby zacząć przesuń lewą rękę z prawej do lewej")
 
         detector.restartMove()
 

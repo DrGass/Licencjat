@@ -2,6 +2,9 @@ import cv2
 import mediapipe as mp
 import time
 import math
+import winsound
+frequency = 2500  # Set Frequency To 2500 Hertz
+duration = 1000  # Set Duration To 1000 ms == 1 second
 
 
 class poseDetector():
@@ -40,7 +43,6 @@ class poseDetector():
         self.results = self.pose.process(imgRGB)
         if self.results.pose_landmarks:
             if draw:
-                # print(self.results.pose_landmarks)
                 self.mpDraw.draw_landmarks(img, self.results.pose_landmarks,
                                            self.mpPose.POSE_CONNECTIONS)
         return img
@@ -50,7 +52,6 @@ class poseDetector():
         if self.results.pose_landmarks:
             for id, lm in enumerate(self.results.pose_landmarks.landmark):
                 h, w, c = img.shape
-                # print(id, lm)
                 cx, cy, cz = int(lm.x * w), int(lm.y * h), round((lm.z * c), 3)
                 self.lmList.append([id, cx, cy, cz])
                 if draw:
@@ -74,6 +75,7 @@ class poseDetector():
             angle = 360 - angle
 
         # print(angle)
+        # print (x1,y1, x2,y2, x3,y3)
 
         # Draw
         if draw:
@@ -116,29 +118,22 @@ class poseDetector():
 
     def checkCurl(self, img, draw=True, side="right"):
 
-        # if self.lmList[25][1] - self.lmList[16][1] < 30:
-        #     if self.lmList[25][2] - self.lmList[16][2] < 20:
-        #         self.curlRestart()
-
         if self.lmList[11][3] > self.lmList[12][3]:
-            # print(self.lmList[11][3], self.lmList[12][3])
             side = "right"
+            # coordinates of wrist and foot
             angle = self.findAngle(img, 12, 14, 16)
 
         else:
             side = "left"
-            # print(self.lmList[11][3], self.lmList[12][3])
             # coordinates of wrist and foot
             angle = self.findAngle(img, 11, 13, 15)
 
         # start
-
         if self.bicepCounter == 0 and self.bicepStage == "up":
             cv2.putText(img, "Please straighten your arm", (100, 360),
                         cv2.FONT_HERSHEY_PLAIN, 2, (0, 0, 255), 2)
 
         # check curl
-
         if angle > 160 and self.signal:
             self.bicepStage = "down"
             self.signal = False
@@ -146,7 +141,6 @@ class poseDetector():
             self.signal = False
             self.bicepStage = "up"
             self.bicepCounter += 1
-        # print(angle, self.bicepStage)
 
         if draw:
             cv2.putText(img, str(self.bicepCounter), (10, 40),
@@ -178,19 +172,11 @@ class poseDetector():
             if 94 > kneeAngle > 84:
                 kneeAngle = self.findAngle(img, 24, 26, 28, c1=0, c2=255, c3=0)
 
-        # if angle > 160 and self.signal:
-        #     self.bicepStage = "down"
-        #     self.signal = False
-        # if angle < 50 and self.bicepStage == "down" and self.signal:
-        #     self.signal = False
-        #     self.bicepStage = "up"
-        #     self.bicepCounter += 1
-
-        if self.signal and kneeAngle > 140 and self.flexCounter != 0:
+        if self.signal and kneeAngle > 140 and self.flexCounter != 0 and self.signal:
             self.flexStage = "down"
             self.signal = False
 
-        if self.signal and kneeAngle < 110 and self.flexStage == "down":
+        if self.signal and kneeAngle < 110 and self.flexStage == "down" and self.signal:
             self.flexStage = "up"
             self.flexCounter += 1
             self.signal = False
@@ -218,8 +204,6 @@ class poseDetector():
 
     def timeCheck(self, angle, img, excercise):
         self.timeList.append([angle, time.time()])
-        # print(time.time() - self.timeList[0][1])
-        # print(self.timeList)
         if time.time() - self.timeList[0][1] > 2.0 \
                 and angle + 4 > self.timeList[0][0] > angle - 4 \
                 and self.signal == False:
@@ -228,6 +212,8 @@ class poseDetector():
             self.timeList.clear()
             self.timeList.append([angle, time.time()])
             self.imgCounter += 1
+            if cv2.getWindowProperty('image', cv2.WND_PROP_VISIBLE) > 1:
+                cv2.destroyWindow("image")
             self.signal = True
 
         if len(self.timeList) > 60:
